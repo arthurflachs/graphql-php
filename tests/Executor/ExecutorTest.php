@@ -14,6 +14,7 @@ use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\ResolveInfo;
 use GraphQL\Type\Definition\Type;
+use GraphQL\Extension\ExtensionInterface;
 
 class ExecutorTest extends \PHPUnit_Framework_TestCase
 {
@@ -1152,5 +1153,72 @@ class ExecutorTest extends \PHPUnit_Framework_TestCase
                 ]
             ]
         ], $result->toArray());
+    }
+
+    public function testExtensionsAreNotifiedOfRequestLifecycle()
+    {
+        $extension = $this->getMockBuilder(ExtensionInterface::class)
+            ->getMock();
+        $extension->expects($this->exactly(3))
+            ->method('willResolveField');
+        $extension->expects($this->exactly(3))
+            ->method('didResolveField');
+
+        $data = null;
+
+        $promiseData = function () use (&$data) {
+            return new Deferred(function () use (&$data) {
+                return $data;
+            });
+        };
+
+        $data = [
+            'a' => function () { return 'Apple';},
+            'promise' => function() use ($promiseData) {
+                return $promiseData();
+            },
+        ];
+
+        $doc = '
+      query Example($size: Int) {
+        a,
+        promise {
+          a
+        }
+      }
+    ';
+
+        $ast = Parser::parse($doc);
+        $expected = [
+            'data' => [
+                'a' => 'Apple',
+                'promise' => [
+                    'a' => 'Apple'
+                ],
+            ]
+        ];
+
+        $dataType = new ObjectType([
+            'name' => 'DataType',
+            'fields' => function() use (&$dataType, &$deepDataType) {
+                return [
+                    'a' => [ 'type' => Type::string() ],
+                    'promise' => ['type' => $dataType],
+                ];
+            }
+        ]);
+
+        $schema = new Schema(['query' => $dataType]);
+
+        Executor::execute(
+            $schema,
+            $ast,
+            $data,
+            null,
+            ['size' => 100],
+            'Example',
+            null,
+            [$extension]
+        );
     }
 }

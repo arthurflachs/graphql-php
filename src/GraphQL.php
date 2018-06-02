@@ -77,13 +77,14 @@ class GraphQL
         $variableValues = null,
         $operationName = null,
         callable $fieldResolver = null,
-        array $validationRules = null
+        array $validationRules = null,
+        $extensions = []
     )
     {
         $promiseAdapter = new SyncPromiseAdapter();
 
         $promise = self::promiseToExecute($promiseAdapter, $schema, $source, $rootValue, $context,
-            $variableValues, $operationName, $fieldResolver, $validationRules);
+            $variableValues, $operationName, $fieldResolver, $validationRules, $extensions);
 
         return $promiseAdapter->wait($promise);
     }
@@ -114,7 +115,8 @@ class GraphQL
         $variableValues = null,
         $operationName = null,
         callable $fieldResolver = null,
-        array $validationRules = null
+        array $validationRules = null,
+        $extensions = []
     )
     {
         try {
@@ -152,7 +154,8 @@ class GraphQL
                     $context,
                     $variableValues,
                     $operationName,
-                    $fieldResolver
+                    $fieldResolver,
+                    $extensions
                 );
             }
         } catch (Error $e) {
@@ -179,7 +182,8 @@ class GraphQL
         $rootValue = null,
         $contextValue = null,
         $variableValues = null,
-        $operationName = null
+        $operationName = null,
+        $extensions = []
     )
     {
         trigger_error(
@@ -193,7 +197,10 @@ class GraphQL
             $rootValue,
             $contextValue,
             $variableValues,
-            $operationName
+            $operationName,
+            null,
+            null,
+            $extensions
         );
 
         if ($promiseAdapter instanceof SyncPromiseAdapter) {
@@ -238,7 +245,10 @@ class GraphQL
             $rootValue,
             $contextValue,
             $variableValues,
-            $operationName
+            $operationName,
+            null,
+            null,
+            $extensions
         );
         if ($promiseAdapter instanceof SyncPromiseAdapter) {
             $result = $promiseAdapter->wait($result);

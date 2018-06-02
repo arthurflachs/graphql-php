@@ -95,7 +95,8 @@ class Executor
         $contextValue = null,
         $variableValues = null,
         $operationName = null,
-        callable $fieldResolver = null
+        callable $fieldResolver = null,
+        $extensions = []
     )
     {
         // TODO: deprecate (just always use SyncAdapter here) and have `promiseToExecute()` for other cases
@@ -108,7 +109,8 @@ class Executor
             $contextValue,
             $variableValues,
             $operationName,
-            $fieldResolver
+            $fieldResolver,
+            $extensions
         );
 
         // Wait for promised results when using sync promises
@@ -144,7 +146,8 @@ class Executor
         $contextValue = null,
         $variableValues = null,
         $operationName = null,
-        callable $fieldResolver = null
+        callable $fieldResolver = null,
+        $extensions = []
     )
     {
         $exeContext = self::buildExecutionContext(
@@ -155,8 +158,11 @@ class Executor
             $variableValues,
             $operationName,
             $fieldResolver,
-            $promiseAdapter
+            $promiseAdapter,
+            $extensions
         );
+
+        $exeContext->requestDidStart();
 
         if (is_array($exeContext)) {
             return $promiseAdapter->createFulfilled(new ExecutionResult(null, $exeContext));
@@ -189,7 +195,8 @@ class Executor
         $rawVariableValues,
         $operationName = null,
         callable $fieldResolver = null,
-        PromiseAdapter $promiseAdapter = null
+        PromiseAdapter $promiseAdapter = null,
+        $extensions
     )
     {
         $errors = [];
@@ -259,7 +266,8 @@ class Executor
             $variableValues,
             $errors,
             $fieldResolver ?: self::$defaultFieldResolver,
-            $promiseAdapter ?: self::getPromiseAdapter()
+            $promiseAdapter ?: self::getPromiseAdapter(),
+            $extensions
         );
     }
 
@@ -311,10 +319,15 @@ class Executor
                 return null;
             })
             ->then(function ($data) {
+                $this->exeContext->requestDidEnd();
                 if ($data !== null){
                     $data = (array) $data;
                 }
-                return new ExecutionResult($data, $this->exeContext->errors);
+                return new ExecutionResult(
+                    $data,
+                    $this->exeContext->errors,
+                    $this->exeContext->extensionsResult
+                );
             });
     }
 
@@ -721,6 +734,38 @@ class Executor
         } else {
             $resolveFn = $this->exeContext->fieldResolver;
         }
+
+        $resolveFn = function($source, $args, $context, $info) use ($resolveFn) {
+            $fieldResolvingId = uniqid();
+            $this->exeContext->willResolveField($fieldResolvingId, $source, $args, $context, $info);
+
+            // Call the actual resolve function
+            $result = $resolveFn($source, $args, $context, $info);
+            $promise = $this->getPromise($result);
+
+            // TODO: refactor using then always
+            if (!$promise instanceof Promise) {
+                $this->exeContext->didResolveField(
+                    $fieldResolvingId,
+                    $source,
+                    $args,
+                    $context,
+                    $info
+                );
+            } else {
+                $promise->then(function () use ($fieldResolvingId, $source, $args, $context, $info) {
+                    $this->exeContext->didResolveField(
+                        $fieldResolvingId,
+                        $source,
+                        $args,
+                        $context,
+                        $info
+                    );
+                });
+            }
+
+            return $result;
+        };
 
         // The resolve function's optional third argument is a context value that
         // is provided to every resolve function within an execution. It is commonly
