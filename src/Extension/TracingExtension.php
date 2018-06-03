@@ -4,6 +4,29 @@ namespace GraphQL\Extension;
 
 use GraphQL\Type\Definition\ResolveInfo;
 
+class Timer
+{
+    protected $startSeconds;
+    protected $startNano;
+
+    public function __construct()
+    {
+        $time = explode(' ', microtime());
+        $this->startSeconds = $time[1];
+        $this->startNano += round($time[0] * 1000000000);
+    }
+
+    public function getEllapsedTime()
+    {
+        $time = explode(' ', microtime());
+
+        $ellapsedSeconds = $time[1] - $this->startSeconds;
+        $ellapsedNano = $time[0] * 1000000000 - $this->startNano;
+
+        return $ellapsedSeconds * 1000000000 + $ellapsedNano;
+    }
+}
+
 class TracingExtension implements ExtensionInterface
 {
     protected $result;
@@ -18,7 +41,7 @@ class TracingExtension implements ExtensionInterface
         $t = microtime(true);
         $micro = sprintf("%06d",($t - floor($t)) * 1000000);
         $this->start = new \DateTime(date('Y-m-d H:i:s.' . $micro, $t));
-        $this->microStart = microtime(true);
+        $this->monotonicStart = new Timer;
     }
 
     public function parsingDidStart()
@@ -47,7 +70,7 @@ class TracingExtension implements ExtensionInterface
 
     public function willResolveField($id, $source, $args, $context, ResolveInfo $info)
     {
-        $this->fieldResolvingStart[$id] = microtime(true);
+        $this->fieldResolvingStart[$id] = new Timer();
     }
 
     public function didResolveField($id, $source, $args, $context, ResolveInfo $info)
@@ -59,8 +82,8 @@ class TracingExtension implements ExtensionInterface
             "parentType" => $info->parentType->name,
             "fieldName" => $info->fieldName,
             "returnType" => $info->returnType->name,
-            "startOffset" => (microtime(true) - $this->microStart) * 1000000000,
-            "duration" => (microtime(true) - $start) * 1000000000,
+            "startOffset" => $this->monotonicStart->getEllapsedTime(),
+            "duration" => $start->getEllapsedTime(),
         ];
     }
 
@@ -72,6 +95,7 @@ class TracingExtension implements ExtensionInterface
     public function requestDidEnd()
     {
         $t = microtime(true);
+
         $micro = sprintf("%06d",($t - floor($t)) * 1000000);
         $end = new \DateTime(date('Y-m-d H:i:s.' . $micro, $t));
 
@@ -80,7 +104,7 @@ class TracingExtension implements ExtensionInterface
                 "version" => 1,
                 "startTime" => $this->start->format(\DateTime::RFC3339_EXTENDED),
                 "endTime" => $end->format(\DateTime::RFC3339_EXTENDED),
-                "duration" => (microtime(true) - $this->microStart) * 1000000000,
+                "duration" => $this->monotonicStart->getEllapsedTime(),
                 "execution" => [
                     "resolvers" => $this->resolverCalls,
                 ]
