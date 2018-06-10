@@ -14,7 +14,7 @@ use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\ResolveInfo;
 use GraphQL\Type\Definition\Type;
-use GraphQL\Extension\ExtensionInterface;
+use GraphQL\Extension\AbstractExtension;
 
 class ExecutorTest extends \PHPUnit_Framework_TestCase
 {
@@ -1162,7 +1162,7 @@ class ExecutorTest extends \PHPUnit_Framework_TestCase
             $callbackCalls += 1;
         };
 
-        $extension = $this->getMockBuilder(ExtensionInterface::class)
+        $extension = $this->getMockBuilder(AbstractExtension::class)
             ->getMock();
         $extension->expects($this->exactly(3))
             ->method('willResolveField')

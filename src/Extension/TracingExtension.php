@@ -5,7 +5,7 @@ namespace GraphQL\Extension;
 use GraphQL\Type\Definition\ResolveInfo;
 use GraphQL\Extension\TracingExtension\Timer;
 
-class TracingExtension implements ExtensionInterface
+class TracingExtension extends AbstractExtension
 {
     protected $result;
     protected $resolverCalls = [];
@@ -22,30 +22,6 @@ class TracingExtension implements ExtensionInterface
         $this->monotonicStart = new Timer;
     }
 
-    public function parsingDidStart()
-    {
-    }
-
-    public function parsingDidEnd()
-    {
-
-    }
-
-    public function validationDidStart()
-    {
-
-    }
-
-    public function validationDidEnd()
-    {
-
-    }
-
-    public function executionDidStart()
-    {
-
-    }
-
     public function willResolveField($source, $args, $context, ResolveInfo $info)
     {
         $timer = new Timer();
@@ -60,11 +36,6 @@ class TracingExtension implements ExtensionInterface
                 "duration" => $timer->getEllapsedTime(),
             ];
         };
-    }
-
-    public function executionDidEnd()
-    {
-
     }
 
     public function requestDidEnd()

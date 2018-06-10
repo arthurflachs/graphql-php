@@ -6,7 +6,7 @@ use GraphQL\Language\AST\FragmentDefinitionNode;
 use GraphQL\Language\AST\OperationDefinitionNode;
 use GraphQL\Type\Schema;
 use GraphQL\Type\Definition\ResolveInfo;
-use GraphQL\Extension\ExtensionInterface;
+use GraphQL\Extension\AbstractExtension;
 
 /**
  * Data that must be available at all points during query execution.
@@ -64,7 +64,7 @@ class ExecutionContext
     public $extensionsResult;
 
     /**
-     * @var ExtensionInterface[]
+     * @var AbstractExtension[]
      */
     public $extensions = [];
 
