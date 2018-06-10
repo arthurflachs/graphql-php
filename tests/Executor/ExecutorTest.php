@@ -1157,12 +1157,19 @@ class ExecutorTest extends \PHPUnit_Framework_TestCase
 
     public function testExtensionsAreNotifiedOfRequestLifecycle()
     {
+        $callbackCalls = 0;
+        $didResolveFieldCallback = function() use (&$callbackCalls) {
+            $callbackCalls += 1;
+        };
+
         $extension = $this->getMockBuilder(ExtensionInterface::class)
             ->getMock();
         $extension->expects($this->exactly(3))
-            ->method('willResolveField');
-        $extension->expects($this->exactly(3))
-            ->method('didResolveField');
+            ->method('willResolveField')
+            ->will($this->returnValue($didResolveFieldCallback));
+        $extension->expects($this->once())
+            ->method('format')
+            ->will($this->returnValue([]));
 
         $data = null;
 
@@ -1220,5 +1227,7 @@ class ExecutorTest extends \PHPUnit_Framework_TestCase
             null,
             [$extension]
         );
+
+        $this->assertEquals(3, $callbackCalls);
     }
 }

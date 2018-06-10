@@ -162,11 +162,11 @@ class Executor
             $extensions
         );
 
-        $exeContext->requestDidStart();
-
         if (is_array($exeContext)) {
             return $promiseAdapter->createFulfilled(new ExecutionResult(null, $exeContext));
         }
+
+        $exeContext->requestDidStart();
 
         $executor = new self($exeContext);
         return $executor->doExecute();
@@ -735,38 +735,6 @@ class Executor
             $resolveFn = $this->exeContext->fieldResolver;
         }
 
-        $resolveFn = function($source, $args, $context, $info) use ($resolveFn) {
-            $fieldResolvingId = uniqid();
-            $this->exeContext->willResolveField($fieldResolvingId, $source, $args, $context, $info);
-
-            // Call the actual resolve function
-            $result = $resolveFn($source, $args, $context, $info);
-            $promise = $this->getPromise($result);
-
-            // TODO: refactor using then always
-            if (!$promise instanceof Promise) {
-                $this->exeContext->didResolveField(
-                    $fieldResolvingId,
-                    $source,
-                    $args,
-                    $context,
-                    $info
-                );
-            } else {
-                $promise->then(function () use ($fieldResolvingId, $source, $args, $context, $info) {
-                    $this->exeContext->didResolveField(
-                        $fieldResolvingId,
-                        $source,
-                        $args,
-                        $context,
-                        $info
-                    );
-                });
-            }
-
-            return $result;
-        };
-
         // The resolve function's optional third argument is a context value that
         // is provided to every resolve function within an execution. It is commonly
         // used to represent an authenticated user, or request-specific caches.
@@ -816,13 +784,32 @@ class Executor
                 $fieldNode,
                 $this->exeContext->variableValues
             );
-
-            return $resolveFn($source, $args, $context, $info);
         } catch (\Exception $error) {
             return $error;
         } catch (\Throwable $error) {
             return $error;
         }
+
+        try {
+            $callback = $this->exeContext->willResolveField($source, $args, $context, $info);
+
+            $result = $resolveFn($source, $args, $context, $info);
+        } catch (\Exception $error) {
+            $result = $error;
+        } catch (\Throwable $error) {
+            $result = $error;
+        }
+
+        $promise = $this->getPromise($result);
+        if ($promise instanceof Promise) {
+            $promise->then(function () use ($callback) {
+                $callback();
+            });
+        } else {
+            $callback();
+        }
+
+        return $result;
     }
 
     /**

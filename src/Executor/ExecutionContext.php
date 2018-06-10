@@ -141,18 +141,19 @@ class ExecutionContext
         }
     }
 
-    public function willResolveField($id, $source, $args, $context, ResolveInfo $info = null)
+    public function willResolveField($source, $args, $context, ResolveInfo $info = null)
     {
-        foreach ($this->extensions as $extension) {
-            $extension->willResolveField($id, $source, $args, $context, $info);
-        }
-    }
+        $callbacks = [];
 
-    public function didResolveField($id, $source, $args, $context, ResolveInfo $info)
-    {
         foreach ($this->extensions as $extension) {
-            $extension->didResolveField($id, $source, $args, $context, $info);
+            $callbacks[] = $extension->willResolveField($source, $args, $context, $info);
         }
+
+        return function() use ($source, $args, $context, $info, $callbacks) {
+            foreach ($callbacks as $callback) {
+                $callback($source, $args, $context, $info);
+            }
+        };
     }
 
     public function executionDidEnd()

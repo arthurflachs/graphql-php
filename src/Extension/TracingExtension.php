@@ -68,23 +68,20 @@ class TracingExtension implements ExtensionInterface
 
     }
 
-    public function willResolveField($id, $source, $args, $context, ResolveInfo $info)
+    public function willResolveField($source, $args, $context, ResolveInfo $info)
     {
-        $this->fieldResolvingStart[$id] = new Timer();
-    }
+        $timer = new Timer();
 
-    public function didResolveField($id, $source, $args, $context, ResolveInfo $info)
-    {
-        $start = $this->fieldResolvingStart[$id];
-
-        $this->resolverCalls[] = [
-            "path" => $info->path,
-            "parentType" => $info->parentType->name,
-            "fieldName" => $info->fieldName,
-            "returnType" => $info->returnType->name,
-            "startOffset" => $this->monotonicStart->getEllapsedTime(),
-            "duration" => $start->getEllapsedTime(),
-        ];
+        return function($source, $args, $context, ResolveInfo $info) use ($timer) {
+            $this->resolverCalls[] = [
+                "path" => $info->path,
+                "parentType" => $info->parentType->name,
+                "fieldName" => $info->fieldName,
+                "returnType" => $info->returnType->name,
+                "startOffset" => $this->monotonicStart->getEllapsedTime(),
+                "duration" => $timer->getEllapsedTime(),
+            ];
+        };
     }
 
     public function executionDidEnd()

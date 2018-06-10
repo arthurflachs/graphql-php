@@ -12,8 +12,7 @@ interface ExtensionInterface
     public function validationDidStart();
     public function validationDidEnd();
     public function executionDidStart();
-    public function willResolveField($id, $source, $args, $context, ResolveInfo $info);
-    public function didResolveField($id, $source, $args, $context, ResolveInfo $info);
+    public function willResolveField($source, $args, $context, ResolveInfo $info);
     public function executionDidEnd();
     public function requestDidEnd();
     public function format();
